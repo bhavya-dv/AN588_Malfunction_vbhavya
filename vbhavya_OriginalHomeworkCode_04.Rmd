@@ -1,0 +1,275 @@
+---
+title: 'Homework 4: Original Homework'
+author: "Bhavya Deepti Vadavalli"
+date: "2023-10-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preliminaries
+
+```{r preliminaries}
+library(curl)
+library(ggplot2)
+library(lmodel2)
+```
+
+## Question 1: 
+
+Write a simple R function, Z.prop.test(), that can perform one- or two-sample Z-tests for proportion data, using the following guidelines:
+
+1. Your function should take the following arguments: p1 and n1 (no default) representing the estimated proportion and sample size (i.e., based on your sample data); p2 and n2 (both defaulting to NULL) that contain a second sample’s proportion and sample size data in the event of a two-sample test; p0 (no default) as the expected value for the population proportion; and alternative (default “two.sided”) and conf.level (default 0.95), to be used in the same way as in the function t.test().
+
+2. When conducting a two-sample test, it should be p1 that is tested as being smaller or larger than p2 when alternative=“less” or alternative=“greater”, the same as in the use of x and y in the function t.test().
+
+3. The function should perform a one-sample Z-test using p1, n1, and p0 if either p2 or n2 (or both) is NULL.
+
+4. The function should contain a check for the rules of thumb we have talked about (n∗p>5
+ and n∗(1−p)>5) to ensure the validity of assuming the normal distribution in both the one- and two-sample settings. If this is violated, the function should still complete but it should also print an appropriate warning message.
+ 
+5. The function should return a list containing the members Z (the test statistic), P (the appropriate p value), and CI (the two-sided CI with respect to “conf.level” around p1 in the case of a one-sample test and around p2-p1 in the case of a two-sample test). For all test alternatives (“two.sided”, “greater”, “less”), calculate symmetric CIs based on quantiles of the normal distribution rather than worrying about calculating single-limit confidence bounds.
+
+Note: To whoever is reviewing this, I'm so sorry. 
+
+```{r question1}
+
+z.prop.test <- function(p1,n1,p2,n2,p0,alternative,conf.level){
+  alternative <- "two.sided"
+  conf.level <- 0.95
+  if(missing(p2|n2)){
+        p2 <- NULL
+        n2 <- NULL
+        #going to one-sample z prop test
+        z <- (p1 - p0)/sqrt(p0 * (1 - p0)/n1) 
+        if (z > 0) {
+            pval <- 2 * pnorm(z, lower.tail = FALSE)
+          }
+          if (z < 0) {
+            pval <- 2 * pnorm(z, lower.tail = TRUE)
+          }
+    
+      if (alternative == "greater") {
+        p <- pnorm(z, lower.tail = FALSE)
+      }
+      if (alternative == "less") {
+        p <- pnorm(z, lower.tail = TRUE)
+      }
+     
+    #values for confidence interval   
+    lower <- p1 - qnorm(conf.level+0.5*(1-conf.level)) * sqrt(p1 * (1 - p1)/n1)
+    upper <- p1 + qnorm(conf.level+0.5*(1-conf.level)) * sqrt(p1 * (1 - p1)/n1)
+    ci <- c(lower, upper)
+    
+    #returning the results: 
+    return("one-sided z prop-test")
+    CI <- conf.level
+    CI
+    Alternative <- alternative
+    Alternative
+    z-value <- as.numeric(z)
+    p-value <- as.numeric(p) #I will make this more efficient if I have time
+    
+  } else{
+   #two sample z-prop test with alternative = "two.sided"
+    pstar <- ((p1*n1) + (p2*n2))/(n1 + n2) 
+    z <- (p2 - p1)/sqrt((pstar * (1 - pstar)) * (1/n1 + 1/n2)) # z-statistic
+    if (z >0) {
+            p <- 2 * pnorm(z, lower.tail = FALSE)
+          }
+          if (z < 0) {
+            p <- 2 * pnorm(z, lower.tail = TRUE)
+          }
+    
+    if(alternative == "greater"){
+      p <- pnorm(z, lower.tail = FALSE)
+    }
+    if(alternative == "lower"){
+      p <- pnorm(z, lower.tail = TRUE) 
+    }
+    
+  #values for confidence interval
+  upper <- (p1 - p2) + (qnorm(1 - 0.5*1 - (conf.level))) * (sqrt((p1*(1-p1)/n1) + (p2 * (1-p2)/n2)))
+  lower <- (p1 - p2) - (qnorm(1 - 0.5*1 - (conf.level))) * (sqrt((p1*(1-p1)/n1) + (p2 * (1-p2)/n2)))
+  ci <- c(lower, upper)
+  
+  #returning the statistics: 
+  return("two-sample z prop-test")
+    CI <- conf.level
+    CI
+    Alternative <- alternative
+    Alternative
+    z-value <- as.numeric(z)
+    p-value <- as.numeric(p)
+  }
+}
+```
+
+This runs. I'll take that as a win for now. But, I'm scared to test it. 
+
+## Question 2:
+
+The dataset from Kamilar and Cooper has in it a large number of variables related to life history and body size. For this exercise, the end aim is to fit a simple linear regression model to predict longevity (MaxLongevity_m) measured in months from species’ brain size (Brain_Size_Species_Mean) measured in grams. Do the following for both longevity~brain size and log(longevity)~log(brain size):
+
+1. Fit the regression model and, using {ggplot2}, produce a scatterplot with the fitted line superimposed upon the data. Append the the fitted model equation to your plot (HINT: use the function geom_text()).
+
+2. Identify and interpret the point estimate of the slope (β1), as well as the outcome of the test associated with the hypotheses H0: β1 = 0; HA: β1 ≠ 0. Also, find a 90 percent CI for the slope (β1) parameter.
+
+3. Using your model, add lines for the 90 percent confidence and prediction interval bands on the plot and add a legend to differentiate between the lines.
+
+4. Produce a point estimate and associated 90 percent PI for the longevity of a species whose brain weight is 800 gm. Do you trust the model to predict observations accurately for this value of the explanatory variable? Why or why not?
+
+5. Looking at your two models, which do you think is better? Why?
+
+### Calling the dataset: 
+
+```{r question2}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall23/KamilarAndCooperData.csv")
+f <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(f)
+```
+
+### Regression Models:
+
+```{r regression-model}
+f <- na.omit(f)
+longevity <- f$MaxLongevity_m
+brain_size <- f$Brain_Size_Species_Mean
+
+beta1 <- cor(longevity,brain_size)*sd(longevity)/sd(brain_size)
+beta1
+
+beta0 <- mean(longevity) - beta1 * mean(brain_size)
+beta0
+
+#Therefore, the equation is 307.7522 = y - 0.8789037x
+
+g <- ggplot(data = f, aes(x = brain_size, y = longevity))
+g <- g + geom_point()
+g <- g + geom_smooth(method = "lm", formula = y ~ x)
+g #not able to figure out the geom_text thing yet
+```
+```{r log-regression}
+log_longevity <- log(f$MaxLongevity_m)
+log_brain_size <- log(f$Brain_Size_Species_Mean)
+
+beta1 <- cor(log_longevity,log_brain_size)*sd(log_longevity)/sd(log_brain_size)
+beta1
+
+beta0 <- mean(log_longevity) - beta1 * mean(log_brain_size)
+beta0
+
+#Therefore, the equation is 5.086498 = y - 0.2028543x
+
+g <- ggplot(data = f, aes(x = log_brain_size, y = log_longevity))
+g <- g + geom_point()
+g <- g + geom_smooth(method = "lm", formula = y ~ x)
+g #not able to figure out the geom_text thing yet
+```
+### Confidence Intervals:
+
+```{r calc-CI}
+model <- lm(longevity ~ brain_size, data = f)
+beta1_ci <- confint(model, level = 0.90)
+beta1_ci
+summary(model) #based on these results, the values are significant at 0.1 (and even higher)
+
+#for the log-regression model
+model_log <- lm(log_longevity ~ log_brain_size, data = f)
+beta1_log_ci <- confint(model_log, level = 0.90)
+beta1_log_ci
+summary(model_log) #based on these results, the values are significant at 0.1 (and even higher)
+```
+
+I wasn't sure how to actually do a statistical test to see if beta1 is different from 0, but I used the summary function. I'm not sure if that is correct? 
+
+I'm not sure what is meant by 'interpret the point estimate of the slope of beta1' 
+
+### Prediction Values: 
+
+```{r predictions_non_long}
+#For the non-log model, the equation 307.7522 = y - 0.8789037x
+lower_longevity <- 260.1112167+0.5928154*(brain_size) #values from calling beta1
+lower_longevity #values of longevity based on the lower end of the CI
+
+upper_longevity <- 355.393214 + 1.164992*(brain_size)
+upper_longevity #values of longevity based on the upper end of the CI
+
+#Prediction intervals:
+pred_int <- predict(model, interval = "prediction", level = 0.90)
+pred_int
+
+intervals <- as.data.frame(pred_int)
+intervals <- cbind(intervals, lower_longevity)
+intervals <- cbind(intervals, upper_longevity)
+intervals <- cbind(intervals, brain_size)
+intervals <- cbind(intervals, longevity)
+
+#Plotting: 
+g <- ggplot(intervals, aes(x = brain_size, y= longevity))+ 
+  geom_point()+
+  geom_line(aes(x = brain_size, y = fit, color = "black"))+
+  geom_line(aes(brain_size, lwr, color = "green"))+
+  geom_line(aes(brain_size, upr, color = "green"))+
+  geom_line(aes(brain_size, lower_longevity, color = "red"))+
+  geom_line(aes(brain_size, upper_longevity, color = "red"))
+
+#I need to add a legend but black is the best fit, green is the prediction intervals and red are the CIs
+
+g  
+```
+```{r log_reg_predictions}
+
+beta1_log_ci
+
+#For the non-log model, the equation 5.086498 = y - 0.2028543x
+log_lower_longevity <- 4.7030309+0.1172695*(log_brain_size) #values from calling beta1_log_ci
+log_lower_longevity #values of log_longevity based on the lower end of the CI
+
+log_upper_longevity <- 5.4699646 + 0.2884391*(log_brain_size)
+log_upper_longevity #values of log_longevity based on the upper end of the CI
+
+#Prediction intervals:
+pred_int_log <- predict(model_log, interval = "prediction", level = 0.90)
+pred_int_log
+
+intervals_log <- as.data.frame(pred_int_log)
+intervals_log <- cbind(intervals_log, log_lower_longevity)
+intervals_log <- cbind(intervals_log, log_upper_longevity)
+intervals_log <- cbind(intervals_log, log_brain_size)
+intervals_log <- cbind(intervals_log, log_longevity)
+
+#Plotting: 
+g <- ggplot(intervals_log, aes(x = log_brain_size, y= log_longevity))+ 
+  geom_point()+
+  geom_line(aes(x = log_brain_size, y = fit, color = "black"))+
+  geom_line(aes(log_brain_size, lwr, color = "green"))+
+  geom_line(aes(log_brain_size, upr, color = "green"))+
+  geom_line(aes(log_brain_size, log_lower_longevity, color = "red"))+
+  geom_line(aes(log_brain_size, log_upper_longevity, color = "red"))
+
+#I need to add a legend but black is the best fit, green is the prediction intervals and red are the CIs
+
+g  
+```
+### Point Estimate for brain size = 800 gms 
+
+```{r point_estimates}
+point_estimate <- 307.7522 + 0.8789037*800
+point_estimate #1010.875 months
+
+log_point_estimate <- 5.086498 + 0.2028543*800 #I'm not sure what to do with this. 
+
+```
+Overall, I don't these are bad models to predict the longevity accurately. Brain_size is considered a constant which is used to predict longevity, which I don't think is a bad assumption to make. 
+I do think that the log transformed model is better as it evens out the data a bit (takes care of the extreme values).
+
+## Challenges I faced:
+
+1. Making the function made me cry. I kept questioning if I knew what I was doing. Probably not. 
+
+2. The function is so long and inefficient. I didn't have time to fix that. And I'm not sure if I've made the loops correctly to begin with. 
+
+3. The geom_text function is so confusing. I still can't figure it out. 
