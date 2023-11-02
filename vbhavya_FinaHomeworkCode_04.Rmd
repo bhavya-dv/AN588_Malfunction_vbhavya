@@ -1,6 +1,6 @@
 ---
-title: "weavers_PeerCommentary_vbhavya_04"
-author: "Sofia M. Weaver"
+title: "vbhavya_FinalHomeworkCode_04"
+author: "Bhavya Deepti Vadavalli"
 date: "`r Sys.Date()`"
 output: html_document
 ---
